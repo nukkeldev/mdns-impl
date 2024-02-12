@@ -1,31 +1,27 @@
 use anyhow::Result;
 use log::debug;
-use std::fmt::Debug;
+use std::{fmt::Debug, thread::sleep, vec};
 
 use crate::pack::Packable;
 
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone)]
 pub struct MDNSFQDN {
-    labels: [&'static str; 3],
+    labels: Vec<String>,
 }
 
 impl MDNSFQDN {
-    pub fn new(s: &'static str) -> Self {
-        let labels: Vec<&str> = s.split('.').collect();
-
+    pub fn new(s: &str) -> Self {
         MDNSFQDN {
-            labels: [labels[0], labels[1], labels[2]],
+            labels: s.split('.').map(|s| s.to_string()).collect(),
         }
     }
 
     pub fn to_string(&self) -> String {
-        let mut s = String::new();
-        for label in &self.labels {
-            s.push_str(label);
-            s.push('.');
-        }
-        s.pop();
-        s
+        self.labels.join(".")
+    }
+
+    pub fn get_labels(&self) -> Vec<String> {
+        self.labels.clone()
     }
 }
 
@@ -48,24 +44,42 @@ impl Packable for MDNSFQDN {
         data
     }
 
-    fn unpack(data: &[u8]) -> Result<(&[u8], Self)> {
-        let mut labels = [""; 3];
+    fn unpack(data: &[u8], mut offset: usize) -> Result<(usize, Self)> {
+        let mut labels = vec![];
 
-        let mut i = 0;
-        for j in 0..3 {
-            let len = data[i] as usize;
-            i += 1;
-            let label = String::from_utf8(data[i..i + len].to_vec()).unwrap();
-            labels[j] = Box::leak(label.into_boxed_str());
-            i += len;
+        while data[offset] != 0 {
+            debug!("Labels: {:#?}", labels);
+            // Debug the surrounding 5 bytes.
+            debug!(
+                "Surrounding 5 bytes: {:#?}",
+                &data[offset.saturating_sub(5)..offset + 5]
+            );
+
+            let len = data[offset] as usize;
+            if (len & 0b1100_0000) == 0b1100_0000 {
+                let pointer = u16::from_be_bytes([data[offset] & 0b0011_1111, data[offset + 1]]);
+                debug!("Pointer: {:#?}", pointer);
+                let (_, fqdn) = MDNSFQDN::unpack(data, pointer as usize)?;
+                sleep(std::time::Duration::from_secs(1));
+
+                labels.extend(fqdn.get_labels());
+                offset += 2;
+
+                continue;
+            }
+
+            offset += 1;
+            let label = String::from_utf8(data[offset..offset + len].to_vec()).unwrap();
+            labels.push(label);
+            offset += len;
         }
         // For the terminating zero.
-        i += 1;
+        offset += 1;
 
         let fqdn = MDNSFQDN { labels };
 
         debug!("Unpacked MDNSFQDN: {fqdn:#?}");
 
-        Ok((&data[i..], fqdn))
+        Ok((offset, fqdn))
     }
 }

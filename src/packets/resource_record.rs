@@ -31,11 +31,11 @@ impl Packable for MDNSResourceRecord {
         ]
     }
 
-    fn unpack(data: &[u8]) -> Result<(&[u8], Self)> {
-        let (data, (rr_name, rr_type, cache_flush_rr_class, ttl, rd_length)) =
-            unpack_chain!(data => MDNSFQDN, MDNSTYPE, BoolU15, u32, u16);
+    fn unpack(data: &[u8], offset: usize) -> Result<(usize, Self)> {
+        let (offset, (rr_name, rr_type, cache_flush_rr_class, ttl, rd_length)) =
+            unpack_chain!(data[offset] => MDNSFQDN, MDNSTYPE, BoolU15, u32, u16);
 
-        let r_data = data[..rd_length as usize].to_vec();
+        let r_data = data[offset..offset + rd_length as usize].to_vec();
 
         let rr = MDNSResourceRecord {
             rr_name,
@@ -48,6 +48,6 @@ impl Packable for MDNSResourceRecord {
 
         debug!("Unpacked MDNSResourceRecord: {rr:#?}");
 
-        Ok((&data[rd_length as usize..], rr))
+        Ok((offset + rd_length as usize, rr))
     }
 }

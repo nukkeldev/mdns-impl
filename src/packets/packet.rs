@@ -1,40 +1,40 @@
 use log::debug;
 
-use crate::{pack::Packable, pack_chain};
+use crate::{pack::Packable, pack_chain, util::read_vec_of_t};
 
 use super::{header::MDNSHeader, query::MDNSQuery, MDNSTYPE};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct MDNSPacket<const QN: usize> {
+pub struct MDNSPacket {
     header: MDNSHeader,
-    queries: [MDNSQuery; QN],
+    queries: Vec<MDNSQuery>,
 }
 
-impl MDNSPacket<1> {
+impl MDNSPacket {
     pub fn new(name: &'static str, qtype: MDNSTYPE) -> Self {
         let header = MDNSHeader::new();
         let query = MDNSQuery::new(name, qtype);
         MDNSPacket {
             header,
-            queries: [query],
+            queries: vec![query],
         }
     }
 }
 
-impl Packable for MDNSPacket<1> {
+impl Packable for MDNSPacket {
     fn pack(&self) -> Vec<u8> {
         pack_chain!(self.header, self.queries)
     }
 
-    fn unpack(data: &[u8]) -> anyhow::Result<(&[u8], Self)> {
-        let (data, header) = MDNSHeader::unpack(data)?;
-        let (data, queries) = <[MDNSQuery; 1]>::unpack(data)?;
+    fn unpack(data: &[u8], offset: usize) -> anyhow::Result<(usize, Self)> {
+        let (offset, header) = MDNSHeader::unpack(data, offset)?;
+        let (offset, queries) = read_vec_of_t(data, offset, header.questions as usize)?;
 
         let packet = MDNSPacket { header, queries };
 
         debug!("Unpacked MDNSPacket: {packet:#?}");
 
-        Ok((data, packet))
+        Ok((offset, packet))
     }
 }
 

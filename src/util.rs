@@ -1,4 +1,7 @@
+use std::fmt::Debug;
+
 use anyhow::Result;
+use log::debug;
 
 use crate::pack::Packable;
 
@@ -47,28 +50,35 @@ pub fn read_u16s_be<const N: usize>(data: &[u8]) -> Result<[u16; N]> {
     Ok(v)
 }
 
-pub fn read_vec_of_t<T: Packable>(mut data: &[u8], n: usize) -> Result<(&[u8], Vec<T>)> {
+pub fn read_vec_of_t<T: Packable + Debug>(
+    data: &[u8],
+    mut offset: usize,
+    n: usize,
+) -> Result<(usize, Vec<T>)> {
     let mut v = Vec::new();
     for _ in 0..n {
-        let (d, item) = T::unpack(data)?;
+        let (dx, item) = T::unpack(data, offset)?;
         v.push(item);
-        data = d;
+        offset += dx;
     }
-    Ok((data, v))
+
+    debug!("Unpacked Vec<T>: {:#?}", v);
+
+    Ok((offset, v))
 }
 
 #[macro_export]
 macro_rules! unpack_chain {
-    ($data:ident => $($t:ty),*) => {{
+    ($data:ident[$offset:expr] => $($t:ty),*) => {{
         use paste::paste;
 
-        let data = $data;
+        let offset = $offset;
         $(
             #[allow(non_snake_case)]
-            let (data, paste! {[<_$t>]}) = <$t>::unpack(data)?;
+            let (offset, paste! {[<_$t>]}) = <$t>::unpack($data, offset)?;
         )*
 
-        (data, ($(paste! {[<_$t>]}),*))
+        (offset, ($(paste! {[<_$t>]}),*))
     }};
 }
 

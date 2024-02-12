@@ -25,12 +25,12 @@ impl Packable for MDNSResponse {
         ]
     }
 
-    fn unpack(data: &[u8]) -> Result<(&[u8], Self)> {
-        let (data, header) = MDNSHeader::unpack(data)?;
-        let (data, queries) = read_vec_of_t(data, header.questions as usize)?;
-        let (data, answers) = read_vec_of_t(data, header.answer_rrs as usize)?;
-        let (data, authorities) = read_vec_of_t(data, header.authority_rrs as usize)?;
-        let (data, additional) = read_vec_of_t(data, header.additional_rrs as usize)?;
+    fn unpack(data: &[u8], offset: usize) -> Result<(usize, Self)> {
+        let (offset, header) = MDNSHeader::unpack(data, offset)?;
+        let (offset, queries) = read_vec_of_t(data, offset, header.questions as usize)?;
+        let (offset, answers) = read_vec_of_t(data, offset, header.answer_rrs as usize)?;
+        let (offset, authorities) = read_vec_of_t(data, offset, header.authority_rrs as usize)?;
+        let (offset, additional) = read_vec_of_t(data, offset, header.additional_rrs as usize)?;
 
         let response = MDNSResponse {
             header,
@@ -42,6 +42,6 @@ impl Packable for MDNSResponse {
 
         debug!("Unpacked MDNSResponse: {:?}", response);
 
-        Ok((data, response))
+        Ok((offset, response))
     }
 }

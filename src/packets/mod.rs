@@ -138,11 +138,11 @@ impl Packable for MDNSTYPE {
         (*self as u16).to_be_bytes().to_vec()
     }
 
-    fn unpack(data: &[u8]) -> Result<(&[u8], Self)> {
-        let ty = u16::from_be_bytes([data[0], data[1]]).into();
+    fn unpack(data: &[u8], offset: usize) -> Result<(usize, Self)> {
+        let ty = u16::from_be_bytes([data[offset], data[offset + 1]]).into();
 
         debug!("Unpacked MDNSTYPE: {ty:?}");
 
-        Ok((&data[2..], ty))
+        Ok((offset + 2, ty))
     }
 }

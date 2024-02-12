@@ -62,8 +62,8 @@ fn oneshot_mdns_query(source: (u32, IpAddr)) -> Result<()> {
     match socket.recv_from(&mut buf) {
         Ok((num_bytes, src_addr)) => {
             debug!("Received {} bytes from {}", num_bytes, src_addr);
-            let (data, response) =
-                MDNSResponse::unpack(&buf[..num_bytes]).expect("Failed to unpack response.");
+            let (_, response) =
+                MDNSResponse::unpack(&buf[..num_bytes], 0).expect("Failed to unpack response.");
             debug!("Response: {:#?}", response);
         }
         Err(e) => {

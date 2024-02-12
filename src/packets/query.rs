@@ -8,7 +8,7 @@ use crate::{
 
 use super::{fqdn::MDNSFQDN, MDNSTYPE};
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct MDNSQuery {
     qname: MDNSFQDN,
     qtype: MDNSTYPE,
@@ -52,8 +52,9 @@ impl Packable for MDNSQuery {
         data
     }
 
-    fn unpack(data: &[u8]) -> Result<(&[u8], Self)> {
-        let (data, (qname, qtype, qu_qclass)) = unpack_chain!(data => MDNSFQDN, MDNSTYPE, BoolU15);
+    fn unpack(data: &[u8], offset: usize) -> Result<(usize, Self)> {
+        let (offset, (qname, qtype, qu_qclass)) =
+            unpack_chain!(data[offset] => MDNSFQDN, MDNSTYPE, BoolU15);
 
         let query = MDNSQuery {
             qname,
@@ -63,6 +64,6 @@ impl Packable for MDNSQuery {
 
         debug!("Unpacked MDNSQuery: {query:#?}");
 
-        Ok((data, query))
+        Ok((offset, query))
     }
 }

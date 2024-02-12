@@ -4,7 +4,7 @@ use anyhow::{Ok, Result};
 
 pub trait Packable: Sized {
     fn pack(&self) -> Vec<u8>;
-    fn unpack(data: &[u8]) -> Result<(&[u8], Self)>;
+    fn unpack(data: &[u8], offset: usize) -> Result<(usize, Self)>;
 }
 
 impl<T, const N: usize> Packable for [T; N]
@@ -19,17 +19,17 @@ where
         data
     }
 
-    fn unpack(mut data: &[u8]) -> Result<(&[u8], Self)> {
+    fn unpack(data: &[u8], mut offset: usize) -> Result<(usize, Self)> {
         let mut items: [Option<T>; N] = [None; N];
 
         for i in 0..N {
-            let (d, item) = T::unpack(data)?;
+            let (dx, item) = T::unpack(data, offset)?;
 
             items[i] = Some(item);
-            data = d;
+            offset += dx;
         }
 
-        Ok((data, items.map(|n| n.unwrap())))
+        Ok((offset, items.map(|n| n.unwrap())))
     }
 }
 
@@ -45,7 +45,7 @@ where
         data
     }
 
-    fn unpack(mut _data: &[u8]) -> Result<(&[u8], Self)> {
+    fn unpack(_data: &[u8], _offset: usize) -> Result<(usize, Self)> {
         panic!(
             "Unpacking Vec<T> is not allowed! Please unpack with a type using util::read_vec_of_t!"
         )
@@ -57,8 +57,8 @@ impl Packable for u8 {
         vec![*self]
     }
 
-    fn unpack(data: &[u8]) -> Result<(&[u8], Self)> {
-        Ok((&data[1..], data[0]))
+    fn unpack(data: &[u8], offset: usize) -> Result<(usize, Self)> {
+        Ok((offset + 1, data[0]))
     }
 }
 
@@ -67,9 +67,9 @@ impl Packable for u16 {
         self.to_be_bytes().to_vec()
     }
 
-    fn unpack(data: &[u8]) -> Result<(&[u8], Self)> {
+    fn unpack(data: &[u8], offset: usize) -> Result<(usize, Self)> {
         let n = u16::from_be_bytes([data[0], data[1]]);
-        Ok((&data[2..], n))
+        Ok((offset + 2, n))
     }
 }
 
@@ -78,9 +78,9 @@ impl Packable for u32 {
         self.to_be_bytes().to_vec()
     }
 
-    fn unpack(data: &[u8]) -> Result<(&[u8], Self)> {
+    fn unpack(data: &[u8], offset: usize) -> Result<(usize, Self)> {
         let n = u32::from_be_bytes([data[0], data[1], data[2], data[3]]);
-        Ok((&data[4..], n))
+        Ok((offset + 4, n))
     }
 }
 
@@ -89,11 +89,11 @@ impl Packable for u64 {
         self.to_be_bytes().to_vec()
     }
 
-    fn unpack(data: &[u8]) -> Result<(&[u8], Self)> {
+    fn unpack(data: &[u8], offset: usize) -> Result<(usize, Self)> {
         let n = u64::from_be_bytes([
             data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
         ]);
-        Ok((&data[8..], n))
+        Ok((offset + 8, n))
     }
 }
 
@@ -135,9 +135,9 @@ impl Packable for BoolU15 {
         self.0.to_be_bytes().to_vec()
     }
 
-    fn unpack(data: &[u8]) -> Result<(&[u8], Self)> {
-        let n = u16::from_be_bytes([data[0], data[1]]);
-        Ok((&data[2..], BoolU15(n)))
+    fn unpack(data: &[u8], offset: usize) -> Result<(usize, Self)> {
+        let n = u16::from_be_bytes([data[offset], data[offset + 1]]);
+        Ok((offset + 2, BoolU15(n)))
     }
 }
 
@@ -181,7 +181,7 @@ mod tests {
 
     #[test]
     fn test_bool_u15_unpack() {
-        let (_, b) = BoolU15::unpack(&[0b1010_0000, 0b1101_1100]).unwrap();
+        let (_, b) = BoolU15::unpack(&[0b1010_0000, 0b1101_1100], 0).unwrap();
         assert_eq!(b.get_bool(), true);
         assert_eq!(b.get_u15(), 8412);
     }

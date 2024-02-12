@@ -44,7 +44,7 @@ impl Packable for MDNSHeader {
         ]
     }
 
-    fn unpack(data: &[u8]) -> Result<(&[u8], Self)> {
+    fn unpack(data: &[u8], offset: usize) -> Result<(usize, Self)> {
         let [transaction_id, flags, questions, answer_rrs, authority_rrs, additional_rrs] =
             read_u16s_be::<6>(data).expect("Failed to read u16s from data.");
 
@@ -59,6 +59,6 @@ impl Packable for MDNSHeader {
 
         debug!("Unpacked MDNSHeader: {header:#?}");
 
-        Ok((&data[12..], header))
+        Ok((offset + 12, header))
     }
 }
