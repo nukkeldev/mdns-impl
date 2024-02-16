@@ -20,6 +20,19 @@ pub fn format_slices_as_bits(v: &[u8], bytes_per_line: usize) -> String {
     s
 }
 
+pub fn format_slices_as_dec(v: &[u8], bytes_per_line: usize) -> String {
+    let mut s = String::new();
+    let mut i = 0;
+    for byte in v {
+        s.push_str(&format!("{:03} ", byte));
+        i += 1;
+        if i % bytes_per_line == 0 {
+            s.push_str("\n");
+        }
+    }
+    s
+}
+
 #[macro_export]
 macro_rules! concat_slices {
     ($($i:expr),*) => {
@@ -59,7 +72,7 @@ pub fn read_vec_of_t<T: Packable + Debug>(
     for _ in 0..n {
         let (dx, item) = T::unpack(data, offset)?;
         v.push(item);
-        offset += dx;
+        offset = dx;
     }
 
     debug!("Unpacked Vec<T>: {:#?}", v);

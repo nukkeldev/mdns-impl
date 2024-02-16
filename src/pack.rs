@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
 use anyhow::{Ok, Result};
+use log::debug;
 
 pub trait Packable: Sized {
     fn pack(&self) -> Vec<u8>;
@@ -26,7 +27,7 @@ where
             let (dx, item) = T::unpack(data, offset)?;
 
             items[i] = Some(item);
-            offset += dx;
+            offset = dx;
         }
 
         Ok((offset, items.map(|n| n.unwrap())))
@@ -68,7 +69,7 @@ impl Packable for u16 {
     }
 
     fn unpack(data: &[u8], offset: usize) -> Result<(usize, Self)> {
-        let n = u16::from_be_bytes([data[0], data[1]]);
+        let n = u16::from_be_bytes([data[offset], data[offset+1]]);
         Ok((offset + 2, n))
     }
 }
@@ -79,7 +80,7 @@ impl Packable for u32 {
     }
 
     fn unpack(data: &[u8], offset: usize) -> Result<(usize, Self)> {
-        let n = u32::from_be_bytes([data[0], data[1], data[2], data[3]]);
+        let n = u32::from_be_bytes([data[offset], data[offset+1], data[offset+2], data[offset+3]]);
         Ok((offset + 4, n))
     }
 }
@@ -91,7 +92,7 @@ impl Packable for u64 {
 
     fn unpack(data: &[u8], offset: usize) -> Result<(usize, Self)> {
         let n = u64::from_be_bytes([
-            data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
+            data[offset+0], data[offset+1], data[offset+2], data[offset+3], data[offset+4], data[offset+5], data[offset+6], data[offset+7],
         ]);
         Ok((offset + 8, n))
     }
