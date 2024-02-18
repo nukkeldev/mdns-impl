@@ -1,9 +1,8 @@
-use std::collections::HashMap;
 
 use anyhow::Result;
 use log::debug;
 
-use crate::{pack::Packable, pack_chain, util::{format_slices_as_dec, read_vec_of_t}};
+use crate::{pack::Packable, pack_chain, util::read_vec_of_t};
 
 use super::{header::MDNSHeader, query::MDNSQuery, resource_record::MDNSResourceRecord};
 

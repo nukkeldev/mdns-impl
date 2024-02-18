@@ -8,7 +8,7 @@ use log::debug;
 use mdns_browser::{
     network_interface::get_or_select_ip_address,
     pack::Packable,
-    packets::{packet::MDNSPacket, response::MDNSResponse, MDNSTYPE}, util::{format_slices_as_bits, format_slices_as_dec},
+    packets::{packet::MDNSPacket, response::MDNSResponse, MDNSTYPE}, util::format_slices_as_dec,
 };
 
 const MDNS_PORT: u16 = 5353;

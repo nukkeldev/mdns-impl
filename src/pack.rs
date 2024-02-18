@@ -1,7 +1,6 @@
 use std::fmt::Debug;
 
 use anyhow::{Ok, Result};
-use log::debug;
 
 pub trait Packable: Sized {
     fn pack(&self) -> Vec<u8>;
