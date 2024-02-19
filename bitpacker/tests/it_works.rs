@@ -3,21 +3,23 @@ use bitpacker::bitpacked;
 bitpacked! {
     MDNSHeader {
         $ u16 transaction_id;
-        $ Flags {
-            $ u1 qr;
-            $ u4 opcode;
-            $ u1 aa, tc, rd, ra;
-            $[b3];
-            $ u4 rcode;
-        } flags;
+        $ MDNSHeaderFlags flags;
         $ u16 qn, an, authn, addn;
+    }
+
+    MDNSHeaderFlags {
+        $ u1 qr;
+        $ u4 opcode;
+        $ u1 aa, tc, rd, ra;
+        $[b3];
+        $ u4 rcode;
     }
 }
 
 fn main() {
-    let header = MDNSHeader {
+    let mut header = MDNSHeader {
         transaction_id: 0x1234,
-        flags: Flags {
+        flags: MDNSHeaderFlags {
             qr: true,
             opcode: 0,
             aa: false,
@@ -31,4 +33,6 @@ fn main() {
         authn: 0,
         addn: 0,
     };
+
+    header.get_flags_mut().set_rcode(u8::MAX);
 }
