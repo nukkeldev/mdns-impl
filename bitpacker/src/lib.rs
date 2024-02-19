@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{error::Error, fmt::Debug};
 
 use syn::{braced, bracketed, parse::Parse, parse_macro_input, token, Ident, Token};
 
@@ -111,30 +111,51 @@ fn parse_padding(input: syn::parse::ParseStream) -> syn::Result<Type> {
     Ok(Type::Padding(PaddingSize { byte, bit }))
 }
 
-impl Parse for Type {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        Ok(if input.peek(token::Bracket) {
-            parse_padding(input)?
-        } else {
-            let ident = input.parse::<Ident>()?;
-            let ident_str = ident.to_string();
+/// Parses a hexadecimal number from a string.
+fn parse_hex(input: &str) -> Result<usize, ()> {
+    usize::from_str_radix(input, 16).map_err(|_| ())
+}
 
-            if input.peek(token::Brace) {
-                let exprs = parse_block(input)?;
-                Type::Inline(Input { name: ident, exprs })
-            } else if ident_str.starts_with("u") {
-                let num = ident_str[1..].parse::<usize>().unwrap();
-                Type::UType(num)
-            } else if ident_str.starts_with("i") {
-                let num = ident_str[1..].parse::<usize>().unwrap();
-                Type::IType(num)
-            } else if ident_str.starts_with("f") {
-                let num = ident_str[1..].parse::<usize>().unwrap();
-                Type::FType(num)
-            } else {
-                Type::Arb(ident)
-            }
-        })
+impl Parse for Type {
+    #[rustfmt::skip]
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        // Types can either be inline types of other bitpacked structs,
+        // arbirary (bitpacked) types, variably sized unsigned/signed/float types,
+        // or padding (bit-aligned).
+
+        // Handle the parsing of padding, as it is a unique case compared to the other types.
+        if input.peek(token::Bracket) {
+            return Ok(parse_padding(input)?);
+        }
+
+        // All other types are prefixed with an identifier.
+        let ident = input.parse::<Ident>()?;
+        let ident_str = ident.to_string();
+
+        // If the next token is a brace, then we are parsing an inline type.
+        if input.peek(token::Brace) {
+            let exprs = parse_block(input)?;
+            return Ok(Type::Inline(Input { name: ident, exprs }));
+        }
+
+        // If the identifier starts with a u, i, or f, it is possible to be a variably sized number.
+        if "uif".contains(&ident_str[0..1]) {
+            // If the identifier is followed by a valid hexidecimal number, then the user likely intends for it to be interrepted as such.
+            // Although this allows for some ambiguity, it is unlikely that the user will have a type that is in this format.
+            let num = parse_hex(&ident_str[1..]);
+
+            return match num {
+                Ok(num) => Ok(match &ident_str.as_str()[0..1] {
+                    "u" => Type::UType(num),
+                    "i" => Type::IType(num),
+                    "f" => Type::FType(num),
+                    _ => unreachable!(),
+                }),
+                Err(_) => Ok(Type::Arb(ident)),
+            };
+        }
+        
+        Ok(Type::Arb(ident))
     }
 }
 
