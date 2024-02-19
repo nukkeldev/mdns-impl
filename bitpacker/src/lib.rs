@@ -1,176 +1,162 @@
 use std::fmt::Debug;
 
-use proc_macro2::{Span, TokenStream};
-use quote::{quote_spanned, quote, ToTokens, TokenStreamExt};
-use syn::{braced, parse::Parse, parse_macro_input, punctuated::Punctuated, spanned::Spanned, token, Attribute, Ident, Token, Visibility};
+use syn::{braced, bracketed, parse::Parse, parse_macro_input, token, Ident, Token, Visibility};
 
 #[proc_macro]
 pub fn bitpacked(_input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    // eprintln!("{_attr}");
-    // eprintln!("{_input}");
+    let input = parse_macro_input!(_input as Input);
+    eprintln!("{:#?}", input);
 
-    let input = parse_macro_input!(_input as BitpackedStruct);
-    eprintln!("{:?}", input);
-
-    proc_macro::TokenStream::from(input.to_token_stream())
+    proc_macro::TokenStream::default()
 }
 
-struct BitpackedStruct {
-    attrs: Vec<Attribute>,
-    vis: Visibility,
-    ident: Ident,
-    fields: Vec<BitpackedField>
+// Declarations
+
+#[derive(Debug)]
+struct Input {
+    name: Ident,
+    exprs: Vec<Expr>,
 }
 
-impl Debug for BitpackedStruct {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "BitpackedStruct {{ ident: {:?}, fields: {:?} }}", self.ident, self.fields.iter().collect::<Vec<_>>())
+#[derive(Debug)]
+struct Expr {
+    location: Location,
+    ty: Type,
+    names: Vec<Ident>,
+}
+
+#[derive(Debug)]
+enum Type {
+    Arb(Ident),
+    Inline(Input),
+    UType(usize),
+    IType(usize),
+    FType(usize),
+}
+
+#[derive(Debug)]
+enum Location {
+    Current,
+    Adjusted(LocationAdjustment),
+}
+
+#[derive(Debug)]
+struct LocationAdjustment {
+    mode: LocationAdjustmentMode,
+    byte: usize,
+    bit: usize,
+}
+
+#[derive(Debug)]
+enum LocationAdjustmentMode {
+    Relative,
+    RelativeIncrement,
+    RelativeDecrement,
+}
+
+// Parsing
+
+impl Input {
+    pub fn parse_block(input: syn::parse::ParseStream) -> syn::Result<Vec<Expr>> {
+        let content;
+        braced!(content in input);
+        Ok(content
+            .parse_terminated(Expr::parse, Token![;])?
+            .into_iter()
+            .collect())
     }
 }
 
-struct BitpackedField {
-    vis: Visibility,
-    ident: Ident,
-    ty: BitpackedType
-}
-
-impl Debug for BitpackedField {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "BitpackedField {{ vis, ident: {:?}, ty: {:?} }}", self.ident, self.ty)
-    }
-}
-
-enum BitpackedType {
-    Std(Ident),
-    U(UType),
-    LocalPointer(Box<BitpackedType>)
-}
-
-impl Debug for BitpackedType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BitpackedType::Std(ident) => write!(f, "BitpackedType::Std({})", ident),
-            BitpackedType::U(ut) => write!(f, "BitpackedType::U({:?})", ut),
-            BitpackedType::LocalPointer(t) => write!(f, "BitpackedType::LocalPointer({:?})", t)
-        }
-    }
-}
-
-struct UType {
-    size: usize,
-    backing: Ident
-}
-
-impl Debug for UType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "UType {{ size: {}, backing: {} }}", self.size, self.backing)
-    }
-}
-
-impl Parse for BitpackedStruct {
+impl Parse for Input {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let attrs = input.call(syn::Attribute::parse_outer)?;
-        let vis = input.call(syn::Visibility::parse)?;
+        let name = input.parse()?;
+        let exprs = Input::parse_block(input)?;
 
-        input.parse::<syn::token::Struct>()?;
-        let ident = input.parse::<syn::Ident>()?;
-
-        let inner;
-        braced!(inner in input);
-        
-        let fields = inner.parse_terminated(BitpackedField::parse, syn::token::Comma)?.into_iter().collect();
-
-        Ok(Self {
-            attrs,
-            vis,
-            ident,
-            fields
-        })
+        Ok(Self { name, exprs })
     }
 }
 
-impl ToTokens for BitpackedStruct {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let BitpackedStruct { attrs, vis, ident, fields } = self;
-
-        quote! {
-            #(#attrs)*
-            #vis struct #ident {
-                #(#fields),*
-            }
-        }.to_tokens(tokens);
-    }
-}
-
-impl Parse for BitpackedField {
+impl Parse for Expr {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let vis = input.call(syn::Visibility::parse)?;
-        let ident = input.parse::<syn::Ident>()?;
-        input.parse::<Token![:]>()?;
-        let ty = input.parse::<BitpackedType>()?;
+        input.parse::<Token![$]>()?;
 
-        Ok(Self {
-            vis,
-            ident,
-            ty
-        })
-    }
-}
+        let location = if input.peek(token::Bracket) {
+            let location;
+            bracketed!(location in input);
 
-impl ToTokens for BitpackedField {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let BitpackedField { vis, ident, ty } = self;
-        
-        quote! {
-            #vis #ident: #ty
-        }.to_tokens(tokens)
-    }
-}
-
-impl Parse for BitpackedType {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        if input.parse::<Token![<]>().is_ok() {
-            let pointer = BitpackedType::LocalPointer(input.parse()?);
-            input.parse::<Token![>]>()?;
-            Ok(pointer)
-        } else {
-            let ident = input.parse::<Ident>()?;
-            if let Some(captures) = regex::Regex::new(r"u(\d+)").unwrap().captures(ident.to_string().as_str()) {
-                let size = captures.get(1).unwrap().as_str().parse().unwrap();
-                let backing = match size {
-                    1..=8 => Ident::new("u8", ident.span()),
-                    9..=16 => Ident::new("u16", ident.span()),
-                    17..=32 => Ident::new("u32", ident.span()),
-                    33..=64 => Ident::new("u64", ident.span()),
-                    65..=128 => Ident::new("u128", ident.span()),
-                    _ => return Err(syn::Error::new(ident.span(), "Invalid size!"))
-                };
-
-                Ok(BitpackedType::U(UType {
-                    size,
-                    backing
-                }))
+            let mode = if location.peek(Token![+]) {
+                location.parse::<Token![+]>()?;
+                LocationAdjustmentMode::RelativeIncrement
+            } else if location.peek(Token![-]) {
+                location.parse::<Token![-]>()?;
+                LocationAdjustmentMode::RelativeDecrement
             } else {
-                Ok(BitpackedType::Std(ident))
+                LocationAdjustmentMode::Relative
+            };
+
+            let mut offset = location.parse::<Ident>()?.to_string();
+            let mut byte = 0;
+            let mut bit = 0;
+            if offset.starts_with("x") {
+                let end = offset.find("_").unwrap_or(offset.len());
+                byte = usize::from_str_radix(&offset[1..end], 16).unwrap();
+                if let Some("_") = offset.get(end..=end) {
+                    offset = offset[end + 1..].to_string();
+                } else {
+                    offset = offset[end..].to_string();
+                }
+            }
+            if offset.starts_with("b") {
+                bit = usize::from_str_radix(&offset[1..], 16).unwrap();
+            }
+
+            Location::Adjusted(LocationAdjustment { mode, byte, bit })
+        } else {
+            Location::Current
+        };
+
+        let ty = input.parse()?;
+        let mut names = vec![];
+
+        loop {
+            names.push(input.parse()?);
+
+            if input.peek(Token![;]) {
+                break;
+            }
+
+            if input.peek(Token![,]) {
+                input.parse::<Token![,]>()?;
             }
         }
+
+        Ok(Self {
+            location,
+            ty,
+            names,
+        })
     }
 }
 
-impl ToTokens for BitpackedType {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        match self {
-            BitpackedType::Std(ty) => ty.to_tokens(tokens),
-            BitpackedType::U(UType { backing, .. }) => {
-                quote_spanned! { Span::call_site() =>
-                    #backing
-                }.to_tokens(tokens);
-            },
-            BitpackedType::LocalPointer(_) => {
-                quote_spanned! { Span::call_site() =>
-                    usize
-                }.to_tokens(tokens);
-            }
+impl Parse for Type {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let ident = input.parse::<Ident>()?;
+        let ident_str = ident.to_string();
+        if input.peek(token::Brace) {
+            let exprs = Input::parse_block(input)?;
+
+            Ok(Type::Inline(Input { name: ident, exprs }))
+        } else if ident_str.starts_with("u") {
+            let num = ident_str[1..].parse::<usize>().unwrap();
+            Ok(Type::UType(num))
+        } else if ident_str.starts_with("i") {
+            let num = ident_str[1..].parse::<usize>().unwrap();
+            Ok(Type::IType(num))
+        } else if ident_str.starts_with("f") {
+            let num = ident_str[1..].parse::<usize>().unwrap();
+            Ok(Type::FType(num))
+        } else {
+            Ok(Type::Arb(ident))
         }
     }
 }
