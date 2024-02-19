@@ -1,12 +1,16 @@
 use std::fmt::Debug;
 
+use proc_macro2::Span;
+use quote::{format_ident, quote, quote_spanned, ToTokens};
 use syn::{braced, bracketed, parse::Parse, parse_macro_input, token, Ident, Token};
 
 #[proc_macro]
 pub fn bitpacked(_input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(_input as Input);
 
-    proc_macro::TokenStream::default()
+    eprintln!("{}", input.to_token_stream());
+
+    proc_macro::TokenStream::from(input.into_token_stream())
 }
 
 // Declarations
@@ -44,8 +48,15 @@ struct Input {
 /// Multiple variables can be defined by separating their names with `,`s.
 #[derive(Debug)]
 struct Expr {
-    ty: Type,
+    ty: SpannedType,
     names: Vec<Ident>,
+}
+
+/// A spanned type.
+#[derive(Debug)]
+struct SpannedType {
+    span: Span,
+    ty: Type,
 }
 
 /// A valid type for a bitpacked field.
@@ -149,6 +160,14 @@ impl Parse for Expr {
     }
 }
 
+impl Parse for SpannedType {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let span = input.span();
+        let ty = input.parse()?;
+
+        Ok(Self { span, ty })
+    }
+}
 
 /// Trys to parse a hexadecimal number from a string.
 fn try_parse_hex(input: &str) -> Result<usize, ()> {
@@ -221,6 +240,107 @@ impl Parse for Type {
 
 // Codegen
 
+impl ToTokens for Input {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let name = &self.name;
+        let exprs = &self.exprs;
+
+        tokens.extend(quote! {
+            struct #name {
+                #(#exprs)*
+            }
+        });
+
+        exprs.iter().filter(|expr| matches!(expr.ty.ty, Type::Inline(_))).for_each(|inline| {
+            if let Type::Inline(input) = &inline.ty.ty {
+                input.to_tokens(tokens);
+            }
+        });
+    }
+}
+
+impl ToTokens for Expr {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let ty = &self.ty;
+        let decls = self.names.iter().map(|name| {
+            quote! {
+                #name: #ty,
+            }
+        }).collect::<Vec<_>>();
+
+        tokens.extend(decls);
+    }
+}
+
+impl ToTokens for SpannedType {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let SpannedType { span, ty } = self;
+        
+        match ty {
+            Type::Arb(ident) => {
+                tokens.extend(quote! {
+                    #ident
+                });
+            }
+            Type::Inline(input) => {
+                let name = &input.name;
+                quote!(#name).to_tokens(tokens);
+            }
+            Type::UType(num) => {
+                let pow = match num {
+                    1 => "bool",
+                    2..=8 => "u8",
+                    9..=16 => "u16",
+                    17..=32 => "u32",
+                    33..=64 => "u64",
+                    65..=128 => "u128",
+                    _ => {
+                        tokens.extend(quote_spanned! { *span =>
+                            compile_error!("Only 128 bits max for unsigned integers are supported!");
+                        });
+                        return;
+                    }
+                };
+                
+                tokens.extend(format_ident!("{}", pow).into_token_stream());
+            }
+            Type::IType(num) => {
+                let pow = match num {
+                    1 => "bool",
+                    2..=8 => "i8",
+                    9..=16 => "i16",
+                    17..=32 => "i32",
+                    33..=64 => "i64",
+                    65..=128 => "i128",
+                    _ => {
+                        tokens.extend(quote_spanned! { *span =>
+                            compile_error!("Only 128 bits max for signed integers are supported!");
+                        });
+                        return;
+                    }
+                };
+                
+                tokens.extend(format_ident!("{}", pow).into_token_stream());
+            }
+            Type::FType(num) => {
+                let pow = match num {
+                    8..=32 => "f32",
+                    33..=64 => "f64",
+                    _ => {
+                        tokens.extend(quote_spanned! { *span =>
+                            compile_error!("Only 64 bits max for floats are supported!");
+                        });
+                        return;
+                    }
+                };
+
+                tokens.extend(format_ident!("{}", pow).into_token_stream());
+            }
+            _ => {}
+        }
+    }
+}
+
 // Impls
 
 impl Input {
@@ -239,10 +359,10 @@ impl Expr {
     }
 }
 
-impl Type {
+impl SpannedType {
     /// Returns the size of the bitpacked type in bits.
     fn packed_size(&self) -> usize {
-        match self {
+        match &self.ty {
             Type::Padding(size) => size.byte * 8 + size.bit,
             // I'm not quite sure if this is possible to implement,
             // due to needing to dynamically call sizes of other bitpacked structs.
