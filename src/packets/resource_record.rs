@@ -1,8 +1,8 @@
 use anyhow::Result;
-use log::debug;
+use bitvec::vec::BitVec;
 
 use crate::{
-    concat_slices,
+    concat_bits,
     pack::{BoolU15, Packable},
     unpack_chain,
 };
@@ -20,8 +20,8 @@ pub struct MDNSResourceRecord {
 }
 
 impl Packable for MDNSResourceRecord {
-    fn pack(&self) -> Vec<u8> {
-        concat_slices![
+    fn pack(&self) -> BitVec<u8> {
+        concat_bits![
             self.rr_name.pack(),
             self.rr_type.pack(),
             self.cache_flush_rr_class.pack(),
@@ -31,11 +31,15 @@ impl Packable for MDNSResourceRecord {
         ]
     }
 
-    fn unpack(data: &[u8], offset: usize) -> Result<(usize, Self)> {
-        let (offset, (rr_name, rr_type, cache_flush_rr_class, ttl, rd_length)) =
-            unpack_chain!(data[offset] => MDNSFQDN, MDNSTYPE, BoolU15, u32, u16);
+    fn unpack(data: &mut BitVec<u8>) -> Result<Self> {
+        let (rr_name, rr_type, cache_flush_rr_class, ttl, rd_length) =
+            unpack_chain!(data => MDNSFQDN, MDNSTYPE, BoolU15, u32, u16);
 
-        let r_data = data[offset..offset + rd_length as usize].to_vec();
+        let r_data = data
+            .drain(..rd_length as usize * 8)
+            .as_bitslice()
+            .to_bitvec()
+            .into_vec();
 
         let rr = MDNSResourceRecord {
             rr_name,
@@ -46,8 +50,6 @@ impl Packable for MDNSResourceRecord {
             r_data,
         };
 
-        debug!("Unpacked MDNSResourceRecord: {rr:#?}");
-
-        Ok((offset + rd_length as usize, rr))
+        Ok(rr)
     }
 }

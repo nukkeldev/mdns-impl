@@ -1,7 +1,8 @@
 use std::fmt::Debug;
 
+use crate::load;
 use anyhow::Result;
-use log::debug;
+use bitvec::vec::BitVec;
 
 use crate::pack::Packable;
 
@@ -34,10 +35,12 @@ pub fn format_slices_as_dec(v: &[u8], bytes_per_line: usize) -> String {
 }
 
 #[macro_export]
-macro_rules! concat_slices {
-    ($($i:expr),*) => {
-        [$(&$i[..]),*].concat()
-    };
+macro_rules! concat_bits {
+    ($($j:expr),*) => {{
+        let mut out = BitVec::<u8>::new();
+        $(out.extend($j);)*
+        out
+    }};
 }
 
 #[macro_export]
@@ -49,57 +52,43 @@ macro_rules! concat_slices_to_bytes {
 
 // PACKING UTILS
 
-pub fn read_u16s_be<const N: usize>(data: &[u8]) -> Result<[u16; N]> {
-    let mut v = [0; N];
-    for i in 0..N {
-        let start = i * 2;
-
-        if start + 1 >= data.len() {
-            return Err(anyhow::anyhow!("Not enough data to read u16!"));
-        }
-
-        v[i] = u16::from_be_bytes([data[start], data[start + 1]]);
-    }
-    Ok(v)
+pub fn read_u16s_be<const N: usize>(data: &mut BitVec<u8>) -> Result<[u16; N]> {
+    Ok([0; N].map(|_| load!(data => u16)))
 }
 
-pub fn read_vec_of_t<T: Packable + Debug>(
-    data: &[u8],
-    mut offset: usize,
-    n: usize,
-) -> Result<(usize, Vec<T>)> {
-    let mut v = Vec::new();
-    for _ in 0..n {
-        let (dx, item) = T::unpack(data, offset)?;
-        v.push(item);
-        offset = dx;
-    }
-
-    debug!("Unpacked Vec<T>: {:#?}", v);
-
-    Ok((offset, v))
+pub fn read_vec_of_t<T: Packable + Debug>(data: &mut BitVec<u8>, n: usize) -> Result<Vec<T>> {
+    Ok((0..n).map(|_| T::unpack(data).unwrap()).collect::<Vec<_>>())
 }
 
 #[macro_export]
 macro_rules! unpack_chain {
-    ($data:ident[$offset:expr] => $($t:ty),*) => {{
+    ($data:ident => $($t:ty),*) => {{
         use paste::paste;
-
-        let offset = $offset;
         $(
             #[allow(non_snake_case)]
-            let (offset, paste! {[<_$t>]}) = <$t>::unpack($data, offset)?;
+            let paste! {[<_$t>]} = <$t>::unpack($data)?;
         )*
 
-        (offset, ($(paste! {[<_$t>]}),*))
+        ($(paste! {[<_$t>]}),*)
     }};
 }
 
 #[macro_export]
 macro_rules! pack_chain {
     ($($i:expr),*) => {{
-        use crate::concat_slices;
+        use crate::concat_bits;
 
-        concat_slices![$($i.pack()),*]
+        concat_bits![$($i.pack()),*]
+    }};
+}
+
+#[macro_export]
+macro_rules! load {
+    ($data:expr => $ty:ty) => {{
+        use bitvec::field::BitField;
+        $data
+            .drain(..::std::mem::size_of::<$ty>() * 8)
+            .as_bitslice()
+            .load_be::<$ty>()
     }};
 }

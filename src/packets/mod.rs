@@ -1,7 +1,7 @@
 use anyhow::Result;
-use log::debug;
+use bitvec::vec::BitVec;
 
-use crate::pack::Packable;
+use crate::{load, pack::Packable};
 
 pub mod flags;
 pub mod fqdn;
@@ -134,15 +134,13 @@ impl From<u16> for MDNSTYPE {
 }
 
 impl Packable for MDNSTYPE {
-    fn pack(&self) -> Vec<u8> {
-        (*self as u16).to_be_bytes().to_vec()
+    fn pack(&self) -> BitVec<u8> {
+        (*self as u16).pack()
     }
 
-    fn unpack(data: &[u8], offset: usize) -> Result<(usize, Self)> {
-        let ty = u16::from_be_bytes([data[offset], data[offset + 1]]).into();
+    fn unpack(data: &mut BitVec<u8>) -> Result<Self> {
+        let ty = load!(data => u16).into();
 
-        debug!("Unpacked MDNSTYPE: {ty:?}");
-
-        Ok((offset + 2, ty))
+        Ok(ty)
     }
 }

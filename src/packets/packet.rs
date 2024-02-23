@@ -1,6 +1,7 @@
-use log::debug;
+use anyhow::Result;
+use bitvec::vec::BitVec;
 
-use crate::{pack::Packable, pack_chain, util::read_vec_of_t};
+use crate::{pack::Packable, util::read_vec_of_t};
 
 use super::{header::MDNSHeader, query::MDNSQuery, MDNSTYPE};
 
@@ -22,25 +23,25 @@ impl MDNSPacket {
 }
 
 impl Packable for MDNSPacket {
-    fn pack(&self) -> Vec<u8> {
-        pack_chain!(self.header, self.queries)
+    fn pack(&self) -> BitVec<u8> {
+        let mut out = self.header.pack();
+        out.extend(self.queries.pack());
+        out
     }
 
-    fn unpack(data: &[u8], offset: usize) -> anyhow::Result<(usize, Self)> {
-        let (offset, header) = MDNSHeader::unpack(data, offset)?;
-        let (offset, queries) = read_vec_of_t(data, offset, header.questions as usize)?;
+    fn unpack(data: &mut BitVec<u8>) -> Result<Self> {
+        let header = MDNSHeader::unpack(data)?;
+        let queries = read_vec_of_t(data, header.questions as usize)?;
 
         let packet = MDNSPacket { header, queries };
 
-        debug!("Unpacked MDNSPacket: {packet:#?}");
-
-        Ok((offset, packet))
+        Ok(packet)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{concat_slices, concat_slices_to_bytes};
+    use crate::{concat_bits, concat_slices_to_bytes};
 
     use super::*;
 
@@ -73,13 +74,14 @@ mod tests {
                 let unicast_response: u16 = 1u16 << 15;
                 let qclass: u16 = 0x0001; // IN
 
-                concat_slices![
+                concat_bits!(
                     qname,
                     qtype.to_be_bytes(),
                     (unicast_response | qclass).to_be_bytes()
-                ]
+                )
             };
-            concat_slices![header, query]
+
+            concat_bits!(header, query)
         };
 
         let mut packet = MDNSPacket::new("_http._tcp.local", MDNSTYPE::PTR);

@@ -8,8 +8,11 @@ use log::debug;
 use mdns_browser::{
     network_interface::get_or_select_ip_address,
     pack::Packable,
-    packets::{packet::MDNSPacket, response::MDNSResponse, MDNSTYPE}, util::format_slices_as_dec,
+    packets::{packet::MDNSPacket, response::MDNSResponse, MDNSTYPE},
+    util::format_slices_as_dec,
 };
+
+use bitvec::prelude::*;
 
 const MDNS_PORT: u16 = 5353;
 const MDNS_MULTICAST_IPV4: Ipv4Addr = Ipv4Addr::new(224, 0, 0, 251);
@@ -55,7 +58,7 @@ fn oneshot_mdns_query(source: (u32, IpAddr)) -> Result<()> {
     );
 
     // Send the packet.
-    socket.send_to(&packet.pack(), target_address)?;
+    socket.send_to(&packet.pack().into_vec(), target_address)?;
 
     // // Receive the response.
     let mut buf = [0; 1024];
@@ -63,12 +66,14 @@ fn oneshot_mdns_query(source: (u32, IpAddr)) -> Result<()> {
         Ok((num_bytes, src_addr)) => {
             debug!("Received {} bytes from {}", num_bytes, src_addr);
             debug!("Buffer:\n{}", format_slices_as_dec(&buf[..num_bytes], 16));
+
             // Send back the response.
             socket.send_to(&buf[..num_bytes], target_address)?;
-            // // Save the response to a file.
+            // Save the response to a file.
             // std::fs::write("response.bin", &buf[..num_bytes])?;
-            let (_, response) =
-                MDNSResponse::unpack(&buf[..num_bytes], 0).expect("Failed to unpack response.");
+
+            let mut data = buf[..num_bytes].view_bits().to_bitvec();
+            let response = MDNSResponse::unpack(&mut data).expect("Failed to unpack response.");
             debug!("Response: {:#?}", response);
         }
         Err(e) => {

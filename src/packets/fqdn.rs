@@ -1,15 +1,15 @@
 use anyhow::Result;
-use log::debug;
+use bitvec::{order::Lsb0, vec::BitVec, view::BitView};
 use std::fmt::Debug;
 
-use crate::pack::Packable;
+use crate::{load, pack::Packable};
 
 #[derive(PartialEq, Eq, Clone)]
 pub struct MDNSFQDN {
     labels: Vec<Label>,
 }
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Label {
     String(String),
     Pointer(u16),
@@ -48,57 +48,49 @@ impl Debug for MDNSFQDN {
 }
 
 impl Packable for MDNSFQDN {
-    fn pack(&self) -> Vec<u8> {
-        let mut data = Vec::new();
+    fn pack(&self) -> BitVec<u8> {
+        let mut data = BitVec::new();
         for label in &self.labels {
             match label {
                 Label::String(s) => {
-                    data.push(s.len() as u8);
-                    for b in s.as_bytes() {
-                        data.push(*b);
-                    }
+                    data.extend((s.len() as u8).view_bits::<Lsb0>());
+                    data.extend(s.as_bytes());
                 }
                 Label::Pointer(p) => {
                     let p = *p | 0b1100_0000;
-                    let bytes = p.to_be_bytes();
-                    data.push(bytes[0]);
-                    data.push(bytes[1]);
+                    data.extend(p.view_bits::<Lsb0>());
                 }
             }
         }
         if let Label::String(_) = self.labels.last().unwrap() {
-            data.push(0);
+            data.extend_from_bitslice(0u8.view_bits::<Lsb0>());
         }
         data
     }
 
-    fn unpack(data: &[u8], mut offset: usize) -> Result<(usize, Self)> {
+    fn unpack(data: &mut BitVec<u8>) -> Result<Self> {
         let mut labels = vec![];
 
-        while data[offset] != 0 {
-            let len = data[offset] as usize;
+        while data[..8].any() {
+            let len = load!(data => u8) as usize;
             if len & 0b1100_0000 == 0b1100_0000 {
-                let pointer = ((len as u16 & 0b0011_1111) << 8) | data[offset + 1] as u16;
+                let pointer = ((len as u16 & 0b0011_1111) << 8) | load!(data => u8) as u16;
                 labels.push(Label::Pointer(pointer));
-                offset += 2;
                 continue;
             }
 
-            offset += 1;
-            let label = String::from_utf8(data[offset..offset + len].to_vec()).unwrap();
+            let label =
+                String::from_utf8((0..len).map(|_| load!(data => u8)).collect::<Vec<_>>()).unwrap();
             labels.push(Label::String(label));
-            offset += len;
         }
         // For the terminating zero.
         if !labels.is_empty() {
             if let Label::String(_) = labels.last().unwrap() {
-                offset += 1;
+                data.drain(..8);
             }
         }
         let fqdn = MDNSFQDN { labels };
 
-        debug!("Unpacked MDNSFQDN: {fqdn:#?}");
-
-        Ok((offset, fqdn))
+        Ok(fqdn)
     }
 }

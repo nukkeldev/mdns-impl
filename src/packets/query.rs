@@ -1,5 +1,5 @@
 use anyhow::Result;
-use log::debug;
+use bitvec::vec::BitVec;
 
 use crate::{
     pack::{BoolU15, Packable},
@@ -44,17 +44,16 @@ impl MDNSQuery {
 }
 
 impl Packable for MDNSQuery {
-    fn pack(&self) -> Vec<u8> {
-        let mut data = Vec::new();
+    fn pack(&self) -> BitVec<u8> {
+        let mut data = BitVec::new();
         data.append(&mut self.qname.pack());
         data.append(&mut self.qtype.pack());
         data.append(&mut self.qu_qclass.pack());
         data
     }
 
-    fn unpack(data: &[u8], offset: usize) -> Result<(usize, Self)> {
-        let (offset, (qname, qtype, qu_qclass)) =
-            unpack_chain!(data[offset] => MDNSFQDN, MDNSTYPE, BoolU15);
+    fn unpack(data: &mut BitVec<u8>) -> Result<Self> {
+        let (qname, qtype, qu_qclass) = unpack_chain!(data => MDNSFQDN, MDNSTYPE, BoolU15);
 
         let query = MDNSQuery {
             qname,
@@ -62,8 +61,6 @@ impl Packable for MDNSQuery {
             qu_qclass,
         };
 
-        debug!("Unpacked MDNSQuery: {query:#?}");
-
-        Ok((offset, query))
+        Ok(query)
     }
 }
