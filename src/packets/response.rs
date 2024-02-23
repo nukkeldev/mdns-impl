@@ -4,15 +4,15 @@ use anyhow::Result;
 
 use crate::{pack::Packable, pack_chain, util::read_vec_of_t};
 
-use super::{header::MDNSHeader, query::MDNSQuery, resource_record::MDNSResourceRecord};
+use super::{header::MDNSHeader, query::MDNSQuery, resource_record::MDNSResourceRecord, MDNSTYPE};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct MDNSResponse {
-    header: MDNSHeader,
-    queries: Vec<MDNSQuery>,
-    answers: Vec<MDNSResourceRecord>,
-    authorities: Vec<MDNSResourceRecord>,
-    additional: Vec<MDNSResourceRecord>,
+    pub header: MDNSHeader,
+    pub queries: Vec<MDNSQuery>,
+    pub answers: Vec<MDNSResourceRecord>,
+    pub authorities: Vec<MDNSResourceRecord>,
+    pub additional: Vec<MDNSResourceRecord>,
 }
 
 impl MDNSResponse {
@@ -46,6 +46,18 @@ impl MDNSResponse {
             authorities,
             additional,
         }
+    }
+
+    pub fn get_resource_record_of_type(&self, ty: MDNSTYPE) -> Result<MDNSResourceRecord> {
+        let record = self
+            .answers
+            .iter()
+            .chain(self.authorities.iter())
+            .chain(self.additional.iter())
+            .find(|r| r.rr_type == ty)
+            .ok_or_else(|| anyhow::anyhow!("No record of type {:?} found.", ty))?;
+
+        Ok(record.clone())
     }
 }
 

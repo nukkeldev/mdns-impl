@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use bitvec::{field::BitField, order::Msb0, view::BitView};
-use log::debug;
 
 use crate::{
     concat_bits,
@@ -17,14 +16,14 @@ use super::{
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct MDNSResourceRecord {
-    rr_name: MDNSFQDN,
-    rr_type: MDNSTYPE,
-    cache_flush_rr_class: BoolU15,
-    ttl: u32,
+    pub rr_name: MDNSFQDN,
+    pub rr_type: MDNSTYPE,
+    pub cache_flush_rr_class: BoolU15,
+    pub ttl: u32,
     /// The length of the r_data field in bytes, prior to decompression.
-    rd_length: u16,
+    pub rd_length: u16,
     /// A hacky way to represent a possibly pointer terminated section of data.
-    r_data: (Vec<u8>, Option<Label>),
+    pub r_data: (Vec<u8>, Option<Label>),
 }
 
 impl MDNSResourceRecord {
@@ -93,8 +92,6 @@ impl Packable for MDNSResourceRecord {
                 r_data.0.truncate(rd_length as usize - 2);
             }
         }
-
-        debug!("Unpacked RR: {:?}", r_data);
 
         let rr = MDNSResourceRecord {
             rr_name,

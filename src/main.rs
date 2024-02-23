@@ -4,12 +4,11 @@ use std::{
 };
 
 use anyhow::Result;
-use log::debug;
+use log::{debug, info};
 use mdns_browser::{
     network_interface::get_or_select_ip_address,
     pack::Packable,
     packets::{packet::MDNSPacket, response::MDNSResponse, MDNSTYPE},
-    util::format_slices_as_dec,
 };
 
 use bitvec::prelude::*;
@@ -22,8 +21,8 @@ const MDNS_MULTICAST_SOCKETV4: SocketAddr =
 const MDNS_MULTICAST_SOCKETV6: SocketAddr =
     SocketAddr::new(IpAddr::V6(MDNS_MULTICAST_IPV6), MDNS_PORT);
 
-const QUERY_WRITE_TIMEOUT: Duration = Duration::from_secs(20);
-const RESPONSE_READ_TIMEOUT: Duration = Duration::from_secs(20);
+const QUERY_WRITE_TIMEOUT: Duration = Duration::from_secs(3);
+const RESPONSE_READ_TIMEOUT: Duration = Duration::from_secs(3);
 
 fn configured_mdns_socket(source: (u32, IpAddr)) -> Result<UdpSocket> {
     let socket = UdpSocket::bind((source.1, 0))?;
@@ -60,26 +59,32 @@ fn oneshot_mdns_query(source: (u32, IpAddr)) -> Result<()> {
     // Send the packet.
     socket.send_to(&packet.pack().into_vec(), target_address)?;
 
-    // // Receive the response.
+    // // Receive the responses.
     let mut buf = [0; 1024];
-    match socket.recv_from(&mut buf) {
-        Ok((num_bytes, src_addr)) => {
-            debug!("Received {} bytes from {}", num_bytes, src_addr);
-            debug!("Buffer:\n{}", format_slices_as_dec(&buf[..num_bytes], 16));
+    let mut responses = vec![];
 
-            // Send back the response.
-            socket.send_to(&buf[..num_bytes], target_address)?;
-            // Save the response to a file.
-            // std::fs::write("response.bin", &buf[..num_bytes])?;
+    debug!("Waiting for responses...");
 
-            let mut data = buf[..num_bytes].view_bits().to_bitvec();
-            let response = MDNSResponse::unpack(&mut data).expect("Failed to unpack response.");
-            debug!("Response: {:#?}", response);
-        }
-        Err(e) => {
-            eprintln!("Failed to receive response: {}", e);
-        }
+    while let Ok((num_bytes, _)) = socket.recv_from(&mut buf) {
+        // Send back the response.
+        socket.send_to(&buf[..num_bytes], target_address)?;
+
+        let mut data = buf[..num_bytes].view_bits().to_bitvec();
+        responses.push(MDNSResponse::unpack(&mut data).expect("Failed to unpack response."));
     }
+
+    info!(
+        "Received {} responses from {:#?}.",
+        responses.len(),
+        responses
+            .iter()
+            .map(|r| r
+                .get_resource_record_of_type(MDNSTYPE::SRV)
+                .unwrap()
+                .rr_name
+                .to_string())
+            .collect::<Vec<_>>()
+    );
 
     Ok(())
 }

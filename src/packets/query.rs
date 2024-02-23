@@ -11,9 +11,9 @@ use super::{fqdn::MDNSFQDN, MDNSTYPE};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct MDNSQuery {
-    qname: MDNSFQDN,
-    qtype: MDNSTYPE,
-    qu_qclass: BoolU15,
+    pub qname: MDNSFQDN,
+    pub qtype: MDNSTYPE,
+    pub qu_qclass: BoolU15,
 }
 
 impl MDNSQuery {
