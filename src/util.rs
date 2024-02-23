@@ -2,7 +2,6 @@ use std::fmt::Debug;
 
 use crate::load;
 use anyhow::Result;
-use bitvec::vec::BitVec;
 
 use crate::pack::Packable;
 
@@ -37,7 +36,7 @@ pub fn format_slices_as_dec(v: &[u8], bytes_per_line: usize) -> String {
 #[macro_export]
 macro_rules! concat_bits {
     ($($j:expr),*) => {{
-        let mut out = BitVec::<u8>::new();
+        let mut out = crate::BitVec::new();
         $(out.extend($j);)*
         out
     }};
@@ -52,11 +51,11 @@ macro_rules! concat_slices_to_bytes {
 
 // PACKING UTILS
 
-pub fn read_u16s_be<const N: usize>(data: &mut BitVec<u8>) -> Result<[u16; N]> {
+pub fn read_u16s_be<const N: usize>(data: &mut crate::BitVec) -> Result<[u16; N]> {
     Ok([0; N].map(|_| load!(data => u16)))
 }
 
-pub fn read_vec_of_t<T: Packable + Debug>(data: &mut BitVec<u8>, n: usize) -> Result<Vec<T>> {
+pub fn read_vec_of_t<T: Packable + Debug>(data: &mut crate::BitVec, n: usize) -> Result<Vec<T>> {
     Ok((0..n).map(|_| T::unpack(data).unwrap()).collect::<Vec<_>>())
 }
 

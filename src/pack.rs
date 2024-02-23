@@ -4,19 +4,19 @@ use anyhow::{Ok, Result};
 use bitvec::prelude::*;
 
 pub trait Packable: Sized {
-    fn pack(&self) -> BitVec<u8>;
-    fn unpack(data: &mut BitVec<u8>) -> Result<Self>;
+    fn pack(&self) -> crate::BitVec;
+    fn unpack(data: &mut crate::BitVec) -> Result<Self>;
 }
 
 impl<T, const N: usize> Packable for [T; N]
 where
     T: Packable + Clone + Copy + Default,
 {
-    fn pack(&self) -> BitVec<u8> {
+    fn pack(&self) -> crate::BitVec {
         BitVec::from_iter(self.into_iter().flat_map(|e| e.pack()))
     }
 
-    fn unpack(data: &mut BitVec<u8>) -> Result<Self> {
+    fn unpack(data: &mut crate::BitVec) -> Result<Self> {
         Ok([T::default(); N].map(|_| T::unpack(data).unwrap()))
     }
 }
@@ -25,11 +25,11 @@ impl<T> Packable for Vec<T>
 where
     T: Packable,
 {
-    fn pack(&self) -> BitVec<u8> {
+    fn pack(&self) -> crate::BitVec {
         BitVec::from_iter(self.into_iter().flat_map(|e| e.pack()))
     }
 
-    fn unpack(_data: &mut BitVec<u8>) -> Result<Self> {
+    fn unpack(_data: &mut crate::BitVec) -> Result<Self> {
         panic!(
             "Unpacking Vec<T> is not allowed! Please unpack with a type using util::read_vec_of_t!"
         )
@@ -73,11 +73,11 @@ impl Debug for BoolU15 {
 }
 
 impl Packable for BoolU15 {
-    fn pack(&self) -> BitVec<u8> {
+    fn pack(&self) -> crate::BitVec {
         self.0.pack()
     }
 
-    fn unpack(data: &mut BitVec<u8>) -> Result<Self> {
+    fn unpack(data: &mut crate::BitVec) -> Result<Self> {
         Ok(BoolU15(load!(data => u16)))
     }
 }
@@ -88,11 +88,11 @@ macro_rules! impl_packable_unsigned {
     ($($t:ty),*) => {
         $(
             impl Packable for $t {
-                fn pack(&self) -> BitVec<u8> {
-                    self.to_be_bytes().view_bits::<Lsb0>().to_bitvec()
+                fn pack(&self) -> crate::BitVec {
+                    self.to_be_bytes().view_bits::<Msb0>().to_bitvec()
                 }
 
-                fn unpack(data: &mut BitVec<u8>) -> Result<Self> {
+                fn unpack(data: &mut crate::BitVec) -> Result<Self> {
                     Ok(load!(data => $t))
                 }
             }

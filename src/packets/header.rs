@@ -1,5 +1,5 @@
 use anyhow::Result;
-use bitvec::{vec::BitVec, view::BitView};
+use bitvec::view::BitView;
 
 use crate::{concat_slices_to_bytes, pack::Packable, util::read_u16s_be};
 
@@ -33,7 +33,7 @@ impl MDNSHeader {
 }
 
 impl Packable for MDNSHeader {
-    fn pack(&self) -> BitVec<u8> {
+    fn pack(&self) -> crate::BitVec {
         concat_slices_to_bytes![
             self.transaction_id,
             self.flags,
@@ -46,7 +46,7 @@ impl Packable for MDNSHeader {
         .to_bitvec()
     }
 
-    fn unpack(data: &mut BitVec<u8>) -> Result<Self> {
+    fn unpack(data: &mut crate::BitVec) -> Result<Self> {
         let [transaction_id, flags, questions, answer_rrs, authority_rrs, additional_rrs] =
             read_u16s_be::<6>(data).expect("Failed to read u16s from data.");
 

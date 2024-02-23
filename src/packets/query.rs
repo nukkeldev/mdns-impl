@@ -1,5 +1,6 @@
+use std::collections::HashMap;
+
 use anyhow::Result;
-use bitvec::vec::BitVec;
 
 use crate::{
     pack::{BoolU15, Packable},
@@ -41,18 +42,22 @@ impl MDNSQuery {
     pub fn get_qu(&self) -> bool {
         self.qu_qclass.get_bool()
     }
+
+    pub fn resolve(&mut self, data: &crate::BitVec, data_cache: &mut HashMap<usize, String>) {
+        self.qname.resolve(data, data_cache, None);
+    }
 }
 
 impl Packable for MDNSQuery {
-    fn pack(&self) -> BitVec<u8> {
-        let mut data = BitVec::new();
+    fn pack(&self) -> crate::BitVec {
+        let mut data = crate::BitVec::new();
         data.append(&mut self.qname.pack());
         data.append(&mut self.qtype.pack());
         data.append(&mut self.qu_qclass.pack());
         data
     }
 
-    fn unpack(data: &mut BitVec<u8>) -> Result<Self> {
+    fn unpack(data: &mut crate::BitVec) -> Result<Self> {
         let (qname, qtype, qu_qclass) = unpack_chain!(data => MDNSFQDN, MDNSTYPE, BoolU15);
 
         let query = MDNSQuery {

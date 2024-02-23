@@ -1,5 +1,4 @@
 use anyhow::Result;
-use bitvec::vec::BitVec;
 
 use crate::{pack::Packable, util::read_vec_of_t};
 
@@ -23,13 +22,13 @@ impl MDNSPacket {
 }
 
 impl Packable for MDNSPacket {
-    fn pack(&self) -> BitVec<u8> {
+    fn pack(&self) -> crate::BitVec {
         let mut out = self.header.pack();
         out.extend(self.queries.pack());
         out
     }
 
-    fn unpack(data: &mut BitVec<u8>) -> Result<Self> {
+    fn unpack(data: &mut crate::BitVec) -> Result<Self> {
         let header = MDNSHeader::unpack(data)?;
         let queries = read_vec_of_t(data, header.questions as usize)?;
 
