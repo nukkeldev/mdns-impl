@@ -17,7 +17,7 @@ pub struct MDNSQuery {
 }
 
 impl MDNSQuery {
-    pub fn new(name: &'static str, qtype: MDNSTYPE) -> Self {
+    pub fn new(name: &str, qtype: MDNSTYPE) -> Self {
         let qname = MDNSFQDN::new(name);
         let qu_qclass = BoolU15::new(true, 1);
         MDNSQuery {

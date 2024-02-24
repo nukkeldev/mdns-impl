@@ -3,13 +3,13 @@ name = "mdns-browser"
 version = "0.1.0"
 edition = "2021"
 
-[lib]
-
-
 [dependencies]
 anyhow = "1.0.79"
 bitvec = "1.0.1"
 log = "0.4.20"
-network-interface = "1.1.1"
 paste = "1.0.14"
 pretty_env_logger = "0.5.0"
+
+[dev-dependencies]
+clap = { version = "4.5.1", features = ["derive"] }
+network-interface = "1.1.1"

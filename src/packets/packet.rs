@@ -11,7 +11,7 @@ pub struct MDNSPacket {
 }
 
 impl MDNSPacket {
-    pub fn new(name: &'static str, qtype: MDNSTYPE) -> Self {
+    pub fn new(name: &str, qtype: MDNSTYPE) -> Self {
         let header = MDNSHeader::new();
         let query = MDNSQuery::new(name, qtype);
         MDNSPacket {
