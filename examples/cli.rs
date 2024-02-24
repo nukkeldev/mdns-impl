@@ -1,7 +1,7 @@
 use std::{net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket}, time::Duration};
 
 use bitvec::view::BitView;
-use mdns_browser::{pack::Packable, packets::{packet::MDNSPacket, response::MDNSResponse, MDNSTYPE}};
+use mdns_impl::{pack::Packable, packets::{packet::MDNSPacket, response::MDNSResponse, MDNSTYPE}};
 use clap::*;
 use anyhow::Result;
 
