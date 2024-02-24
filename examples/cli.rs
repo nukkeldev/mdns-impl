@@ -6,10 +6,7 @@ use std::{
 use anyhow::Result;
 use bitvec::view::BitView;
 use clap::*;
-use mdns_impl::{
-    pack::Packable,
-    packets::{packet::MDNSPacket, response::MDNSResponse, MDNSTYPE},
-};
+use mdns_impl::packets::{pack::Packable, packet::MDNSPacket, response::MDNSResponse, MDNSTYPE};
 
 // MDNS Constants
 const MDNS_PORT: u16 = 5353;

@@ -3,10 +3,11 @@ use std::collections::HashMap;
 use anyhow::Result;
 use bitvec::{field::BitField, order::Msb0, view::BitView};
 
-use crate::{bool_u15, concat_packable_bits, pack::Packable, unpack_chain};
+use crate::{bool_u15, concat_packable_bits, unpack_chain};
 
 use super::{
     fqdn::{Label, MDNSFQDN},
+    pack::Packable,
     MDNSTYPE,
 };
 

@@ -1,4 +1,5 @@
-use crate::{concat_packable_bits, pack::Packable, util::read_u16s_be};
+use super::{pack::Packable, util::read_u16s_be};
+use crate::concat_packable_bits;
 use anyhow::Result;
 
 #[derive(Debug, PartialEq, Eq, Clone)]

@@ -2,9 +2,12 @@ use std::{collections::HashMap, fmt::Debug};
 
 use anyhow::Result;
 
-use crate::{concat_packable_bits, pack::Packable, util::read_vec_of_t};
+use crate::concat_packable_bits;
 
-use super::{header::MDNSHeader, query::MDNSQuery, resource_record::MDNSResourceRecord, MDNSTYPE};
+use super::{
+    header::MDNSHeader, pack::Packable, query::MDNSQuery, resource_record::MDNSResourceRecord,
+    util::read_vec_of_t, MDNSTYPE,
+};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct MDNSResponse {

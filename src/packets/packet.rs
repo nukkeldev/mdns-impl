@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::{pack::Packable, util::read_vec_of_t};
+use super::{pack::Packable, util::read_vec_of_t};
 
 use super::{header::MDNSHeader, query::MDNSQuery, MDNSTYPE};
 

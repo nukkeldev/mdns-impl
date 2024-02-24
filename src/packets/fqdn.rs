@@ -2,7 +2,8 @@ use anyhow::Result;
 use bitvec::{order::Msb0, vec::BitVec, view::BitView};
 use std::{collections::HashMap, fmt::Debug};
 
-use crate::{load, pack::Packable};
+use super::pack::Packable;
+use crate::load;
 
 #[derive(PartialEq, Eq, Clone)]
 pub struct MDNSFQDN {

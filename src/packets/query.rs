@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 
-use crate::{bool_u15, concat_packable_bits, pack::Packable, unpack_chain};
+use crate::{bool_u15, concat_packable_bits, unpack_chain};
 
-use super::{fqdn::MDNSFQDN, MDNSTYPE};
+use super::{fqdn::MDNSFQDN, pack::Packable, MDNSTYPE};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct MDNSQuery {

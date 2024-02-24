@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use crate::load;
 use anyhow::Result;
 
-use crate::pack::Packable;
+use super::pack::Packable;
 
 pub fn read_u16s_be<const N: usize>(data: &mut crate::Data) -> Result<[u16; N]> {
     Ok([0; N].map(|_| load!(data => u16)))

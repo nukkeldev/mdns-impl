@@ -1,13 +1,17 @@
 use anyhow::Result;
 
-use crate::{load, pack::Packable};
+use self::pack::Packable;
+use crate::load;
 
-pub mod fqdn;
-pub mod header;
+pub mod pack;
 pub mod packet;
-pub mod query;
-pub mod resource_record;
 pub mod response;
+
+mod fqdn;
+mod header;
+mod query;
+mod resource_record;
+mod util;
 
 // ENUMS
 
