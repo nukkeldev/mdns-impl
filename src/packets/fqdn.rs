@@ -42,7 +42,7 @@ impl MDNSFQDN {
 
     pub fn resolve(
         &mut self,
-        data: &crate::BitVec,
+        data: &crate::Data,
         data_cache: &mut HashMap<usize, String>,
         pointer_idx: Option<usize>,
     ) -> &mut Self {
@@ -76,7 +76,7 @@ impl Debug for MDNSFQDN {
 }
 
 impl Packable for MDNSFQDN {
-    fn pack(&self) -> crate::BitVec {
+    fn pack(&self) -> crate::Data {
         let mut data = BitVec::new();
         for label in &self.labels {
             match label {
@@ -96,7 +96,7 @@ impl Packable for MDNSFQDN {
         data
     }
 
-    fn unpack(data: &mut crate::BitVec) -> Result<Self> {
+    fn unpack(data: &mut crate::Data) -> Result<Self> {
         let mut labels = vec![];
 
         while data[..8].any() {

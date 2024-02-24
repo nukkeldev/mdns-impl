@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt::Debug};
 
 use anyhow::Result;
 
-use crate::{pack::Packable, pack_chain, util::read_vec_of_t};
+use crate::{concat_packable_bits, pack::Packable, util::read_vec_of_t};
 
 use super::{header::MDNSHeader, query::MDNSQuery, resource_record::MDNSResourceRecord, MDNSTYPE};
 
@@ -17,7 +17,7 @@ pub struct MDNSResponse {
 
 impl MDNSResponse {
     pub fn new(
-        data: crate::BitVec,
+        data: crate::Data,
         header: MDNSHeader,
         mut queries: Vec<MDNSQuery>,
         mut answers: Vec<MDNSResourceRecord>,
@@ -62,8 +62,8 @@ impl MDNSResponse {
 }
 
 impl Packable for MDNSResponse {
-    fn pack(&self) -> crate::BitVec {
-        pack_chain![
+    fn pack(&self) -> crate::Data {
+        concat_packable_bits![
             self.header,
             self.queries,
             self.answers,
@@ -72,7 +72,7 @@ impl Packable for MDNSResponse {
         ]
     }
 
-    fn unpack(data: &mut crate::BitVec) -> Result<Self> {
+    fn unpack(data: &mut crate::Data) -> Result<Self> {
         let data_copy = data.clone();
 
         let header = MDNSHeader::unpack(data)?;

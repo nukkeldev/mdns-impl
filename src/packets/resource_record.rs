@@ -3,11 +3,7 @@ use std::collections::HashMap;
 use anyhow::Result;
 use bitvec::{field::BitField, order::Msb0, view::BitView};
 
-use crate::{
-    concat_bits,
-    pack::{BoolU15, Packable},
-    unpack_chain,
-};
+use crate::{bool_u15, concat_packable_bits, pack::Packable, unpack_chain};
 
 use super::{
     fqdn::{Label, MDNSFQDN},
@@ -18,7 +14,7 @@ use super::{
 pub struct MDNSResourceRecord {
     pub rr_name: MDNSFQDN,
     pub rr_type: MDNSTYPE,
-    pub cache_flush_rr_class: BoolU15,
+    pub cache_flush_rr_class: bool_u15,
     pub ttl: u32,
     /// The length of the r_data field in bytes, prior to decompression.
     pub rd_length: u16,
@@ -27,7 +23,7 @@ pub struct MDNSResourceRecord {
 }
 
 impl MDNSResourceRecord {
-    pub fn resolve(&mut self, data: &crate::BitVec, data_cache: &mut HashMap<usize, String>) {
+    pub fn resolve(&mut self, data: &crate::Data, data_cache: &mut HashMap<usize, String>) {
         self.rr_name.resolve(data, data_cache, None);
         if let Some(ptr) = self.r_data.1.clone() {
             self.r_data.0.extend(
@@ -43,20 +39,20 @@ impl MDNSResourceRecord {
 }
 
 impl Packable for MDNSResourceRecord {
-    fn pack(&self) -> crate::BitVec {
-        concat_bits![
-            self.rr_name.pack(),
-            self.rr_type.pack(),
-            self.cache_flush_rr_class.pack(),
-            self.ttl.to_be_bytes().to_vec(),
-            self.rd_length.to_be_bytes().to_vec(),
-            self.r_data.0.clone()
+    fn pack(&self) -> crate::Data {
+        concat_packable_bits![
+            self.rr_name,
+            self.rr_type,
+            self.cache_flush_rr_class,
+            self.ttl,
+            self.rd_length,
+            self.r_data.0
         ]
     }
 
-    fn unpack(data: &mut crate::BitVec) -> Result<Self> {
+    fn unpack(data: &mut crate::Data) -> Result<Self> {
         let (rr_name, rr_type, cache_flush_rr_class, ttl, rd_length) =
-            unpack_chain!(data => MDNSFQDN, MDNSTYPE, BoolU15, u32, u16);
+            unpack_chain!(data => MDNSFQDN, MDNSTYPE, u16, u32, u16);
 
         let mut r_data = (
             data.drain(..rd_length as usize * 8)

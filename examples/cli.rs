@@ -1,9 +1,15 @@
-use std::{net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket}, time::Duration};
+use std::{
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket},
+    time::Duration,
+};
 
-use bitvec::view::BitView;
-use mdns_impl::{pack::Packable, packets::{packet::MDNSPacket, response::MDNSResponse, MDNSTYPE}};
-use clap::*;
 use anyhow::Result;
+use bitvec::view::BitView;
+use clap::*;
+use mdns_impl::{
+    pack::Packable,
+    packets::{packet::MDNSPacket, response::MDNSResponse, MDNSTYPE},
+};
 
 // MDNS Constants
 const MDNS_PORT: u16 = 5353;
@@ -55,12 +61,15 @@ fn mdns_query(source: (u32, IpAddr), service_type: &str, timeout: Duration) -> R
         let mut data = buf[..num_bytes].view_bits().to_bitvec();
         let response = MDNSResponse::unpack(&mut data).expect("Failed to unpack response.");
 
-        println!("Found {}", response
-            .get_resource_record_of_type(MDNSTYPE::SRV)
-            .unwrap()
-            .rr_name
-            .to_string());
-        
+        println!(
+            "Found {}",
+            response
+                .get_resource_record_of_type(MDNSTYPE::SRV)
+                .unwrap()
+                .rr_name
+                .to_string()
+        );
+
         responses.push(response);
     }
 
@@ -71,8 +80,8 @@ fn mdns_query(source: (u32, IpAddr), service_type: &str, timeout: Duration) -> R
     Ok(())
 }
 
-    // CLI Parser
-    
+// CLI Parser
+
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct MDNSCli {
@@ -80,7 +89,7 @@ struct MDNSCli {
     service_type: String,
     /// Max duration to wait for when recieving new .
     #[arg(short, long, default_value_t = DEFAULT_RESPONSE_READ_TIMEOUT)]
-    timeout: f32
+    timeout: f32,
 }
 
 // ...
@@ -89,8 +98,12 @@ fn main() -> Result<()> {
     let cli = MDNSCli::parse();
 
     let adapter = get_or_select_ip_address()?;
-    
-    mdns_query(adapter, &cli.service_type, Duration::from_secs_f32(cli.timeout))
+
+    mdns_query(
+        adapter,
+        &cli.service_type,
+        Duration::from_secs_f32(cli.timeout),
+    )
 }
 
 // Network Interface Selection

@@ -132,11 +132,11 @@ impl From<u16> for MDNSTYPE {
 }
 
 impl Packable for MDNSTYPE {
-    fn pack(&self) -> crate::BitVec {
+    fn pack(&self) -> crate::Data {
         (*self as u16).pack()
     }
 
-    fn unpack(data: &mut crate::BitVec) -> Result<Self> {
+    fn unpack(data: &mut crate::Data) -> Result<Self> {
         let ty = load!(data => u16).into();
 
         Ok(ty)

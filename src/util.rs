@@ -5,60 +5,25 @@ use anyhow::Result;
 
 use crate::pack::Packable;
 
-// FORMATING UTILS
-
-pub fn format_slices_as_bits(v: &[u8], bytes_per_line: usize) -> String {
-    let mut s = String::new();
-    let mut i = 0;
-    for byte in v {
-        s.push_str(&format!("{:08b} ", byte));
-        i += 1;
-        if i % bytes_per_line == 0 {
-            s.push_str("\n");
-        }
-    }
-    s
+pub fn read_u16s_be<const N: usize>(data: &mut crate::Data) -> Result<[u16; N]> {
+    Ok([0; N].map(|_| load!(data => u16)))
 }
 
-pub fn format_slices_as_dec(v: &[u8], bytes_per_line: usize) -> String {
-    let mut s = String::new();
-    let mut i = 0;
-    for byte in v {
-        s.push_str(&format!("{:03} ", byte));
-        i += 1;
-        if i % bytes_per_line == 0 {
-            s.push_str("\n");
-        }
-    }
-    s
+pub fn read_vec_of_t<T: Packable + Debug>(data: &mut crate::Data, n: usize) -> Result<Vec<T>> {
+    Ok((0..n).map(|_| T::unpack(data).unwrap()).collect::<Vec<_>>())
 }
 
+/// Concatenate a series of `Packable` types into a single `BitVec`.
 #[macro_export]
-macro_rules! concat_bits {
+macro_rules! concat_packable_bits {
     ($($j:expr),*) => {{
-        let mut out = crate::BitVec::new();
-        $(out.extend($j);)*
+        let mut out = crate::Data::new();
+        $(out.extend($j.pack());)*
         out
     }};
 }
 
-#[macro_export]
-macro_rules! concat_slices_to_bytes {
-    ($($i:expr),*) => {
-        [$(&($i.to_be_bytes())[..]),*].concat()
-    };
-}
-
-// PACKING UTILS
-
-pub fn read_u16s_be<const N: usize>(data: &mut crate::BitVec) -> Result<[u16; N]> {
-    Ok([0; N].map(|_| load!(data => u16)))
-}
-
-pub fn read_vec_of_t<T: Packable + Debug>(data: &mut crate::BitVec, n: usize) -> Result<Vec<T>> {
-    Ok((0..n).map(|_| T::unpack(data).unwrap()).collect::<Vec<_>>())
-}
-
+/// Unpack a series of `Packable` types from a `&mut BitVec`.
 #[macro_export]
 macro_rules! unpack_chain {
     ($data:ident => $($t:ty),*) => {{
@@ -72,15 +37,7 @@ macro_rules! unpack_chain {
     }};
 }
 
-#[macro_export]
-macro_rules! pack_chain {
-    ($($i:expr),*) => {{
-        use crate::concat_bits;
-
-        concat_bits![$($i.pack()),*]
-    }};
-}
-
+/// Drain a numerical value from a `&mut BitVec`.
 #[macro_export]
 macro_rules! load {
     ($data:expr => $ty:ty) => {{
