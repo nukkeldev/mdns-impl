@@ -3,6 +3,9 @@ name = "mdns-browser"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+
+
 [dependencies]
 anyhow = "1.0.79"
 bitvec = "1.0.1"

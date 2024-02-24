@@ -48,7 +48,7 @@ fn oneshot_mdns_query(source: (u32, IpAddr)) -> Result<()> {
         MDNS_MULTICAST_SOCKETV4
     };
 
-    let packet = MDNSPacket::new("_http._tcp.local", MDNSTYPE::PTR);
+    let packet = MDNSPacket::new("_ni._tcp.local", MDNSTYPE::PTR);
 
     debug!(
         "Sending mDNS query from {} to {}",
