@@ -51,23 +51,18 @@ fn mdns_query(source: (u32, IpAddr), service_type: &str, timeout: Duration) -> R
     let mut buf = [0; 1024];
     let mut responses = vec![];
 
-    while let Ok((num_bytes, _)) = socket.recv_from(&mut buf) {
-        // Send back the response.
-        socket.send_to(&buf[..num_bytes], target_address)?;
-
+    while let Ok((num_bytes, src)) = socket.recv_from(&mut buf) {
         let mut data = buf[..num_bytes].view_bits().to_bitvec();
         let response = MDNSResponse::unpack(&mut data).expect("Failed to unpack response.");
 
-        println!(
-            "Found {}",
-            response
-                .get_resource_record_of_type(MDNSTYPE::SRV)
-                .unwrap()
-                .rr_name
-                .to_string()
-        );
+        print!("Recived a response from {src}");
 
-        responses.push(response);
+        match response.get_resource_record_of_type(MDNSTYPE::PTR) {
+            Ok(rr) => println!(": '{}'", rr.rr_name.to_string()),
+            Err(_) => println!(" with no PTR record."),
+        }
+
+        responses.push((src, response));
     }
 
     if responses.is_empty() {
@@ -92,6 +87,8 @@ struct MDNSCli {
 // ...
 
 fn main() -> Result<()> {
+    pretty_env_logger::init();
+
     let cli = MDNSCli::parse();
 
     let adapter = get_or_select_ip_address()?;
@@ -120,7 +117,7 @@ pub fn get_or_select_ip_address() -> Result<(u32, IpAddr)> {
                 .iter()
                 .map(move |a| (i, interface.index, a.ip()))
                 .filter(|(_, _, ip)| {
-                    !ip.is_loopback() && !ip.is_unspecified() && !ip.is_multicast()
+                    !ip.is_loopback() && !ip.is_unspecified() && !ip.is_multicast() && ip.is_ipv4()
                 })
         })
         .collect::<Vec<_>>();

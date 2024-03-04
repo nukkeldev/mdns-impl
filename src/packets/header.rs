@@ -1,14 +1,13 @@
-use super::{pack::Packable, util::read_u16s_be};
-use crate::concat_packable_bits;
-use anyhow::Result;
+use packable_derive::Packable;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Packable)]
 pub struct MDNSHeader {
     pub transaction_id: u16,
     pub flags: u16,
     pub questions: u16,
     pub answer_rrs: u16,
     pub authority_rrs: u16,
+    #[size(questions)]
     pub additional_rrs: u16,
 }
 
@@ -28,34 +27,5 @@ impl Default for MDNSHeader {
 impl MDNSHeader {
     pub fn new() -> Self {
         Default::default()
-    }
-}
-
-impl Packable for MDNSHeader {
-    fn pack(&self) -> crate::Data {
-        concat_packable_bits![
-            self.transaction_id,
-            self.flags,
-            self.questions,
-            self.answer_rrs,
-            self.authority_rrs,
-            self.additional_rrs
-        ]
-    }
-
-    fn unpack(data: &mut crate::Data) -> Result<Self> {
-        let [transaction_id, flags, questions, answer_rrs, authority_rrs, additional_rrs] =
-            read_u16s_be::<6>(data).expect("Failed to read u16s from data.");
-
-        let header = MDNSHeader {
-            transaction_id,
-            flags,
-            questions,
-            answer_rrs,
-            authority_rrs,
-            additional_rrs,
-        };
-
-        Ok(header)
     }
 }

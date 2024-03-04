@@ -198,6 +198,7 @@ dependencies = [
  "clap",
  "log",
  "network-interface",
+ "packable-derive",
  "paste",
  "pretty_env_logger",
 ]
@@ -218,6 +219,15 @@ dependencies = [
  "libc",
  "thiserror",
  "winapi",
+]
+
+[[package]]
+name = "packable-derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

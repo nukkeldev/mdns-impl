@@ -5,7 +5,7 @@ use anyhow::Result;
 use crate::concat_packable_bits;
 
 use super::{
-    header::MDNSHeader, pack::Packable, query::MDNSQuery, resource_record::MDNSResourceRecord,
+    header::MDNSHeader, query::MDNSQuery, resource_record::MDNSResourceRecord,
     util::read_vec_of_t, MDNSTYPE,
 };
 
@@ -62,9 +62,13 @@ impl MDNSResponse {
 
         Ok(record.clone())
     }
+
+    pub fn get_resource_records(&self) -> Vec<&MDNSResourceRecord> {
+        self.answers.iter().chain(self.authorities.iter()).chain(self.additional.iter()).collect()
+    }
 }
 
-impl Packable for MDNSResponse {
+impl super::pack::Packable for MDNSResponse {
     fn pack(&self) -> crate::Data {
         concat_packable_bits![
             self.header,
