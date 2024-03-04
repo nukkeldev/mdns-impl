@@ -1,7 +1,7 @@
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::{parse_macro_input, Data, DeriveInput};
 
-#[proc_macro_derive(Packable, attributes(size))]
+#[proc_macro_derive(Packable, attributes(size, post_process))]
 pub fn packable_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
@@ -13,20 +13,18 @@ pub fn packable_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
                     let name = f.ident.as_ref().unwrap();
                     let ty = &f.ty;
 
-                    let size = f.attrs.iter().filter_map(|f| 
+                    let size = f.attrs.iter().find_map(|f| {
                         if f.path().is_ident("size") {
-                            match &f.meta {
-                                syn::Meta::NameValue(nv) => Some(&nv.value),
-                                _ => None,
-                            }
+                            f.parse_args::<syn::Expr>().ok()
                         } else {
                             None
                         }
-                    ).next();
+                    });
 
                     let upck = if let Some(size) = size {
+                        let inner_ty = ty.to_token_stream().into_iter().nth(2);
                         quote! {
-                            let #name = (0..#size).map(|_| <#ty>::unpack(data).unwrap()).collect::<Vec<_>>();
+                            let #name = (0..#size).map(|_| <#inner_ty>::unpack(data).unwrap()).collect::<Vec<_>>();
                         }
                     } else {
                         quote! {
@@ -37,6 +35,28 @@ pub fn packable_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
                     (name, upck)
                 }).unzip();
 
+                let post_process = input.attrs.iter().find_map(|f| {
+                    if f.path().is_ident("post_process") {
+                        f.parse_args::<syn::Expr>()
+                            .ok()
+                            .map(|e| e.into_token_stream())
+                    } else {
+                        None
+                    }
+                });
+
+                let new_fn = if let Some(post) = post_process {
+                    quote! {
+                        Ok(#post(post_data, #(#names),*))
+                    }
+                } else {
+                    quote! {
+                        Ok(#name {
+                            #(#names),*
+                        })
+                    }
+                };
+
                 quote! {
                     fn pack(&self) -> crate::Data {
                         let mut out = crate::Data::new();
@@ -45,13 +65,13 @@ pub fn packable_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
                     }
 
                     fn unpack(data: &mut crate::Data) -> anyhow::Result<Self> {
+                        let post_data = data.clone();
+
                         #(
                             #upcks
                         )*
 
-                        Ok(#name {
-                            #(#names),*
-                        })
+                        #new_fn
                     }
                 }
             }

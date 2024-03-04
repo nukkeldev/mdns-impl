@@ -57,7 +57,7 @@ fn mdns_query(source: (u32, IpAddr), service_type: &str, timeout: Duration) -> R
 
         print!("Recived a response from {src}");
 
-        match response.get_resource_record_of_type(MDNSTYPE::PTR) {
+        match response.get_resource_record_of_type(MDNSTYPE::SRV) {
             Ok(rr) => println!(": '{}'", rr.rr_name.to_string()),
             Err(_) => println!(" with no PTR record."),
         }

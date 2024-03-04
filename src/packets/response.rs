@@ -1,20 +1,21 @@
 use std::{collections::HashMap, fmt::Debug};
 
 use anyhow::Result;
+use packable_derive::Packable;
 
-use crate::concat_packable_bits;
+use super::{header::MDNSHeader, query::MDNSQuery, resource_record::MDNSResourceRecord, MDNSTYPE};
 
-use super::{
-    header::MDNSHeader, query::MDNSQuery, resource_record::MDNSResourceRecord,
-    util::read_vec_of_t, MDNSTYPE,
-};
-
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Packable)]
+#[post_process(MDNSResponse::new)]
 pub struct MDNSResponse {
     pub header: MDNSHeader,
+    #[size(header.questions)]
     pub queries: Vec<MDNSQuery>,
+    #[size(header.answer_rrs)]
     pub answers: Vec<MDNSResourceRecord>,
+    #[size(header.authority_rrs)]
     pub authorities: Vec<MDNSResourceRecord>,
+    #[size(header.additional_rrs)]
     pub additional: Vec<MDNSResourceRecord>,
 }
 
@@ -64,33 +65,10 @@ impl MDNSResponse {
     }
 
     pub fn get_resource_records(&self) -> Vec<&MDNSResourceRecord> {
-        self.answers.iter().chain(self.authorities.iter()).chain(self.additional.iter()).collect()
-    }
-}
-
-impl super::pack::Packable for MDNSResponse {
-    fn pack(&self) -> crate::Data {
-        concat_packable_bits![
-            self.header,
-            self.queries,
-            self.answers,
-            self.authorities,
-            self.additional
-        ]
-    }
-
-    fn unpack(data: &mut crate::Data) -> Result<Self> {
-        let data_copy = data.clone();
-
-        let header = MDNSHeader::unpack(data)?;
-        let queries = read_vec_of_t(data, header.questions as usize)?;
-        let answers = read_vec_of_t(data, header.answer_rrs as usize)?;
-        let authorities = read_vec_of_t(data, header.authority_rrs as usize)?;
-        let additional = read_vec_of_t(data, header.additional_rrs as usize)?;
-
-        let response =
-            MDNSResponse::new(data_copy, header, queries, answers, authorities, additional);
-
-        Ok(response)
+        self.answers
+            .iter()
+            .chain(self.authorities.iter())
+            .chain(self.additional.iter())
+            .collect()
     }
 }

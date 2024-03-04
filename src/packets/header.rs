@@ -7,7 +7,6 @@ pub struct MDNSHeader {
     pub questions: u16,
     pub answer_rrs: u16,
     pub authority_rrs: u16,
-    #[size(questions)]
     pub additional_rrs: u16,
 }
 
