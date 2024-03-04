@@ -20,21 +20,22 @@ pub struct MDNSResourceRecord {
     /// The length of the r_data field in bytes, prior to decompression.
     pub rd_length: u16,
     /// A hacky way to represent a possibly pointer terminated section of data.
-    pub r_data: (Vec<u8>, Option<Label>),
+    pub r_data: Vec<u8>,
+    pub r_data_pointer: Option<Label>,
 }
 
 impl MDNSResourceRecord {
     pub fn resolve(&mut self, data: &crate::Data, data_cache: &mut HashMap<usize, String>) {
         self.rr_name.resolve(data, data_cache, None);
-        if let Some(ptr) = self.r_data.1.clone() {
-            self.r_data.0.extend(
+        if let Some(ptr) = self.r_data_pointer.clone() {
+            self.r_data.extend(
                 MDNSFQDN { labels: vec![ptr] }
                     .resolve(data, data_cache, None)
                     .to_string()
                     .as_bytes()
                     .to_vec(),
             );
-            self.r_data.1 = None;
+            self.r_data_pointer = None;
         };
     }
 }
@@ -47,7 +48,7 @@ impl Packable for MDNSResourceRecord {
             self.cache_flush_rr_class,
             self.ttl,
             self.rd_length,
-            self.r_data.0
+            self.r_data
         ]
     }
 
@@ -96,7 +97,8 @@ impl Packable for MDNSResourceRecord {
             cache_flush_rr_class,
             ttl,
             rd_length,
-            r_data,
+            r_data: r_data.0,
+            r_data_pointer: r_data.1,
         };
 
         Ok(rr)

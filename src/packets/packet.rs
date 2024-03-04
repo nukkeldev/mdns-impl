@@ -1,12 +1,11 @@
-use anyhow::Result;
-
-use super::{pack::Packable, util::read_vec_of_t};
+use packable_derive::Packable;
 
 use super::{header::MDNSHeader, query::MDNSQuery, MDNSTYPE};
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Packable)]
 pub struct MDNSPacket {
     header: MDNSHeader,
+    #[size(header.questions)]
     queries: Vec<MDNSQuery>,
 }
 
@@ -21,28 +20,12 @@ impl MDNSPacket {
     }
 }
 
-impl Packable for MDNSPacket {
-    fn pack(&self) -> crate::Data {
-        let mut out = self.header.pack();
-        out.extend(self.queries.pack());
-        out
-    }
-
-    fn unpack(data: &mut crate::Data) -> Result<Self> {
-        let header = MDNSHeader::unpack(data)?;
-        let queries = read_vec_of_t(data, header.questions as usize)?;
-
-        let packet = MDNSPacket { header, queries };
-
-        Ok(packet)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use bitvec::{bitvec, field::BitField, order::Msb0, view::BitView};
 
     use super::*;
+    use crate::packets::pack::Packable;
 
     #[test]
     fn test_mdns_packet() {

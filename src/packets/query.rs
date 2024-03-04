@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
-use anyhow::Result;
+use packable_derive::Packable;
 
-use crate::{bool_u15, concat_packable_bits, unpack_chain};
+use crate::bool_u15;
 
-use super::{fqdn::MDNSFQDN, pack::Packable, MDNSTYPE};
+use super::{fqdn::MDNSFQDN, MDNSTYPE};
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Packable)]
 pub struct MDNSQuery {
     pub qname: MDNSFQDN,
     pub qtype: MDNSTYPE,
@@ -26,23 +26,5 @@ impl MDNSQuery {
 
     pub fn resolve(&mut self, data: &crate::Data, data_cache: &mut HashMap<usize, String>) {
         self.qname.resolve(data, data_cache, None);
-    }
-}
-
-impl Packable for MDNSQuery {
-    fn pack(&self) -> crate::Data {
-        concat_packable_bits![self.qname, self.qtype, self.qu_qclass]
-    }
-
-    fn unpack(data: &mut crate::Data) -> Result<Self> {
-        let (qname, qtype, qu_qclass) = unpack_chain!(data => MDNSFQDN, MDNSTYPE, u16);
-
-        let query = MDNSQuery {
-            qname,
-            qtype,
-            qu_qclass,
-        };
-
-        Ok(query)
     }
 }

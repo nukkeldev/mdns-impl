@@ -76,7 +76,7 @@ pub fn packable_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
                 }
             }
             syn::Fields::Unnamed(_) => unimplemented!("Tuple structs are not yet supported."),
-            syn::Fields::Unit => quote! {},
+            syn::Fields::Unit => todo!(),
         },
         Data::Enum(_) => unimplemented!("Enums are not yet supported!"),
         Data::Union(_) => unimplemented!("Unions are not yet supported!"),
